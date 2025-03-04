@@ -1,0 +1,126 @@
+import os
+import argparse
+import sys
+import re
+import urllib.request
+from urllib.parse import urlparse,urljoin
+from bs4 import BeautifulSoup
+
+## Fonction extract 
+def download_file(url, save_path):
+    try:
+        reponse = urllib.request.urlopen(url)
+        with open(save_path, 'wb') as file:
+            file.write(reponse.read())
+    except Exception as e:
+        print(f"Erreur lors du telechargement de {url} : {e}")
+        return None
+    
+def extract(url, regex=None, include_images=True, include_videos=True, save_path=None):
+    try:
+        with urllib.request.urlopen(url) as reponse:
+            html = reponse.read()
+        soup = BeautifulSoup(html, 'html.parser')
+    except Exception as e:
+        print(f"Erreur lors de la recuperation de {url} : {e}")
+        return
+    
+    if include_images:
+        for img in soup.find_all('img'):
+            src = img.get('src')
+            alt = img.get('alt', 'N/A')
+            if src:
+                full_url = urljoin(url, src)
+                if regex and not re.search(regex, full_url):
+                    continue
+                if save_path:
+                    download_file(full_url, os.path.join(save_path, os.path.basename(src)))
+                else:
+                    print(f"IMAGE {full_url} \"{alt}\"")
+    if include_videos:
+        for video in soup.find_all('video'):
+            src = video.get('src')
+            if src:
+                full_url = urljoin(url, src)
+                if regex and not re.search(regex, full_url):
+                    continue
+                if save_path:
+                    download_file(full_url, os.path.join(save_path, os.path.basename(src)))
+                else:
+                    print(f"Video {full_url} \"N/A\"")
+
+def generate(ressources):
+
+    html_template = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Extracted Resources</title>
+        <script src="script.js" defer></script>
+    </head>
+    <body>
+        <h1>Ressources extraites</h1>
+        <table border="1">
+            <tr><th>Resource</th><th>Alt text</th></tr>
+    """
+
+    for res in ressources:
+        type_, url, alt = res
+        html_template += f"<tr><td><a href={url} target=blank> {url}</a></td><td>{alt}</td></tr>"
+
+    html_template += """
+        </table>
+        <button onclick="showGallery()">Gallery</button>
+        <button onclick="showCarousel()">Carousel</button>
+    </body>
+    </html>
+    """
+
+    with open('output.html', 'w') as file:
+        file.write(html_template)
+
+def parse_extract_output():
+    ressources = []
+    for line in sys.stdin:
+        parts = line.strip().split(' ', 2)
+        if len(parts) >= 2:
+            type_ = parts[0]
+            url = parts[1]
+            alt = parts[2] if len(parts) == 3 else 'N/A'
+            if type_ in {"IMAGE", "VIDEO"}:
+                ressources.append((type_, url, alt))
+    return ressources
+
+def main():
+    parser = argparse.ArgumentParser(description="Extraire les ressources d'une page web et/ou generer une page HTML")
+    subparsers = parser.add_subparsers(dest='command', required=True)
+
+    #Commande extract
+    extract_parser = subparsers.add_parser('extract', help="Extraire les ressources d'une page web")
+    extract_parser.add_argument('url', help="URL de la page web")
+    extract_parser.add_argument('-r', '--regex', help="Filtrer les URLs des ressources")
+    extract_parser.add_argument('-i', '--no-images', action='store_true', help="Ne pas inclure les images")
+    extract_parser.add_argument('-v', '--no-videos', action='store_true', help="Ne pas inclure les videos")
+    extract_parser.add_argument('-p', '--path', help="Directory pour sauvegarder les ressources extraites", default=None)
+
+    #Commande generate
+    generate_parser = subparsers.add_parser('genere', help="Generer une page HTML avec les ressources extraites")
+
+    args = parser.parse_args()
+
+    if args.command == 'extract':
+        extract(
+            args.url,
+            args.regex,
+            not args.no_images,
+            not args.no_videos,
+            args.path
+        )
+    elif args.command == 'genere':
+        ressources = parse_extract_output()
+        generate(ressources)
+
+if __name__ == '__main__':
+    main()
