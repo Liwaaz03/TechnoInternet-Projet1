@@ -80,7 +80,7 @@ def generate(ressources):
 
     for res in ressources:
         type_, url, alt = res
-        html_template += f'<tr><th>{type_}</th><td><a href={url} target=blank> {url}</a></td><td>{alt}</td></tr>'
+        html_template += f'<tr><th>{type_}</th><td><a href={url} target=blank> {url}</a></td><td>{alt}</td></tr>' '\n'
 
     html_template += """
         </table>
