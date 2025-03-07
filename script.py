@@ -107,8 +107,7 @@ def generate(ressources):
     </html>
     """
 
-    with open('output.html', 'w') as file:
-        file.write(html_template)
+    sys.stdout.write(html_template)
 
 def parse_extract_output():
     ressources = []
@@ -136,6 +135,8 @@ def main():
 
     #Commande generate
     generate_parser = subparsers.add_parser('genere', help="Generer une page HTML avec les ressources extraites")
+    
+
 
     args = parser.parse_args()
 
