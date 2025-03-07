@@ -9,11 +9,19 @@ from bs4 import BeautifulSoup
 # Sauvegarder un fichier et retourner le chemin du fichier local
 def download_file(url, save_path):
     try:
-        reponse = urllib.request.urlopen(url)
-        filename = os.path.join(save_path, os.path.basename(urlparse(url).path))
-        with open(filename, 'wb') as file:
-            file.write(reponse.read())
-        return filename # Retourner le chemin du fichier local
+        response = urllib.request.urlopen(url)
+
+        # Extraire uniquement le nom du fichier depuis l'URL
+        filename = os.path.basename(urlparse(url).path)
+
+        # Construire le chemin de sauvegarde correct
+        file_path = os.path.join(save_path, filename)
+
+        # Télécharger et sauvegarder le fichier
+        with open(file_path, 'wb') as file:
+            file.write(response.read())
+
+        return file_path  # Retourner le chemin local du fichier
     except Exception as e:
         print(f"Erreur lors du telechargement de {url} : {e}")
         return None
@@ -47,7 +55,14 @@ def extract(url, regex=None, include_images=True, include_videos=True, save_path
 
     if include_videos:
         for video in soup.find_all('video'):
+            # Vérifier l'attribut 'src' dans l'élément <video>
             src = video.get('src')
+            
+            if not src:  # Si src n'est pas trouvé, chercher dans <source> 
+                source = video.find('source')
+                if source:
+                    src = source.get('src')
+
             if src:
                 full_url = urljoin(url, src)
                 if regex and not re.search(regex, full_url):
@@ -58,7 +73,7 @@ def extract(url, regex=None, include_images=True, include_videos=True, save_path
                     if local_filename:
                         print(f"VIDEO {local_filename} \"N/A\"")
                 else:
-                    print(f"Video {full_url} \"N/A\"")
+                    print(f"VIDEO {full_url} \"N/A\"")
 
 def generate(ressources):
 
