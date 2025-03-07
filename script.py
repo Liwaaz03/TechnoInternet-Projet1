@@ -6,12 +6,14 @@ import urllib.request
 from urllib.parse import urlparse,urljoin
 from bs4 import BeautifulSoup
 
-## Fonction extract 
+# Sauvegarder un fichier et retourner le chemin du fichier local
 def download_file(url, save_path):
     try:
         reponse = urllib.request.urlopen(url)
-        with open(save_path, 'wb') as file:
+        filename = os.path.join(save_path, os.path.basename(urlparse(url).path))
+        with open(filename, 'wb') as file:
             file.write(reponse.read())
+        return filename # Retourner le chemin du fichier local
     except Exception as e:
         print(f"Erreur lors du telechargement de {url} : {e}")
         return None
@@ -25,6 +27,8 @@ def extract(url, regex=None, include_images=True, include_videos=True, save_path
         print(f"Erreur lors de la recuperation de {url} : {e}")
         return
     
+    print(f"Path {save_path if save_path else url}") # Affichage du chemin du fichier telecharge ou URL
+    
     if include_images:
         for img in soup.find_all('img'):
             src = img.get('src')
@@ -33,10 +37,14 @@ def extract(url, regex=None, include_images=True, include_videos=True, save_path
                 full_url = urljoin(url, src)
                 if regex and not re.search(regex, full_url):
                     continue
-                if save_path:
-                    download_file(full_url, os.path.join(save_path, os.path.basename(src)))
+                if save_path: #Changer le chemin si on sauvegarde localement
+                    os.makedirs(save_path, exist_ok=True)
+                    local_filename = download_file(full_url, save_path)
+                    if local_filename:
+                        print(f"IMAGE {local_filename} \"{alt}\"") # Utiliser le chemin du fichier locale
                 else:
-                    print(f"IMAGE {full_url} \"{alt}\"")
+                    print(f"IMAGE {full_url} \"{alt}\"") # Utiliser l'URL
+
     if include_videos:
         for video in soup.find_all('video'):
             src = video.get('src')
@@ -45,7 +53,10 @@ def extract(url, regex=None, include_images=True, include_videos=True, save_path
                 if regex and not re.search(regex, full_url):
                     continue
                 if save_path:
-                    download_file(full_url, os.path.join(save_path, os.path.basename(src)))
+                    os.makedirs(save_path, exist_ok=True)
+                    local_filename = download_file(full_url, save_path)
+                    if local_filename:
+                        print(f"VIDEO {local_filename} \"N/A\"")
                 else:
                     print(f"Video {full_url} \"N/A\"")
 
@@ -58,22 +69,25 @@ def generate(ressources):
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Extracted Resources</title>
-        <script src="script.js" defer></script>
+        <link rel="stylesheet" href="style.css">
+        <script src="output.js" defer></script>
     </head>
     <body>
         <h1>Ressources extraites</h1>
-        <table border="1">
-            <tr><th>Resource</th><th>Alt text</th></tr>
+        <table>
+            <tr><th>Type</th><th>Resource</th><th>Alt text</th></tr>
     """
 
     for res in ressources:
         type_, url, alt = res
-        html_template += f"<tr><td><a href={url} target=blank> {url}</a></td><td>{alt}</td></tr>"
+        html_template += f'<tr><th>{type_}</th><td><a href={url} target=blank> {url}</a></td><td>{alt}</td></tr>'
 
     html_template += """
         </table>
-        <button onclick="showGallery()">Gallery</button>
-        <button onclick="showCarousel()">Carousel</button>
+        <div id="container">
+        <button id="carrousell">Carousell</button>
+        <button id="gallerie">Gallerie</button>
+        </div>
     </body>
     </html>
     """
